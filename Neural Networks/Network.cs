@@ -14,6 +14,16 @@ namespace Neural_Networks
         {
             Console.WriteLine(text);
         }
+
+        public static void Error(string text)
+        {
+            Console.WriteLine(text);
+        }
+
+        public static void Warning(string text)
+        {
+            Console.WriteLine(text);
+        }
     }
 
     abstract class Neuron
@@ -88,6 +98,8 @@ namespace Neural_Networks
                 double res = activFunc(Value);
                 nextNeuron.Key.RecieveSignal(res * nextNeuron.Value, activFunc);
                 Outputter.Log($"Сигнал {NeuronName} - {nextNeuron.Key.NeuronName} отправлен = {Value} * {nextNeuron.Value} -> {res} * {nextNeuron.Value}");
+
+                Value = res;
             }
             );
             
@@ -171,14 +183,21 @@ namespace Neural_Networks
         public override void AsOffset()
         {
             IsOffset = true;
+            NeuronName += " (OFFSET)";
             MaxAdmissionsLeft = AdmissionsLeft = 0;
             Value = 1;
+
+            if(LastNeurons.Keys.Count != 0)
+            {
+                Outputter.Warning($"[Предупреждение] При изменении свойства IsOffset нейрон {NeuronName} потерял связи с" +
+                    $" {LastNeurons.Keys.Count} нейронами!");
+            }
+
             while(LastNeurons.Keys.Count != 0)
             {
                 LastNeurons.ElementAt(0).Key.RemoveNextNeuron(this);
                 LastNeurons.Remove(LastNeurons.ElementAt(0).Key);
             }
-            NeuronName += " (OFFSET)";
         }
     }
     class OutputNeuron : Neuron
@@ -221,7 +240,7 @@ namespace Neural_Networks
         public Network(params uint[] layers)
         {
             if (layers.Length <= 1)
-                throw new RankException("Сеть не может состоять меньше, чем из 2-х слоёв");
+                throw new ArgumentException("Сеть не может состоять меньше, чем из 2-х слоёв");
 
             NeuronsNetwork = new Neuron[layers.Length][];
             for(uint i = 0; i<layers.Length; i++)
@@ -257,7 +276,6 @@ namespace Neural_Networks
              *      проверка входных на исходящие
              * */
         }
-        //TODO: Не забыть offset
         public double[] GetResult(params double[] args)
         {
             if(args.Length != NeuronsNetwork[0].Length)
@@ -325,53 +343,8 @@ namespace Neural_Networks
             }
             return sB.ToString();
         }
-    }
 
-    class Program
-    {
-        static Network.ActivateFunction MyActivateFunc;
-        static void Main(string[] args)
-        {
-            MyActivateFunc = delegate (double value)
-            {
-                return value >= 0 ? 1 : 0;
-            };
 
-            try
-            {
-                Network network = new Network(new Network.Functions(MyActivateFunc), 2, 4, 1, 1);
 
-                network[0, 0].AddNextNeuron(network[1, 1], -1);
-                network[0, 0].AddNextNeuron(network[1, 2], -1);
-
-                network[0, 1].AddNextNeuron(network[1, 1], -1);
-                network[0, 1].AddNextNeuron(network[1, 2], -1);
-
-                network[1, 0].AddNextNeuron(network[1, 1], 1.5);
-                network[1, 0].AsOffset();
-
-                network[1, 3].AddNextNeuron(network[1, 2], 0.5);
-                network[1, 3].AsOffset();
-
-                network[1, 1].AddNextNeuron(network[3, 0], 1);
-                network[1, 2].AddNextNeuron(network[3, 0], -1);
-
-                network[2, 0].AddNextNeuron(network[3, 0], -0.5);
-                network[2, 0].AsOffset();
-
-                Outputter.Log(network.ToString());
-
-                foreach (double res in network.GetResult(0, 0))
-                {
-                    Outputter.Log("Ответ: " + res + " => " + MyActivateFunc(res));
-                }
-            }
-            catch(Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-            }
-
-            Console.ReadLine();
-        }
     }
 }
