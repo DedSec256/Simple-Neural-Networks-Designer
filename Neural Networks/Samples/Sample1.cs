@@ -18,7 +18,8 @@ namespace Neural_Networks.Samples
 
                 try
                 {
-                    Network network = new Network(new Network.Functions(MyActivateFunc), 2, 4, 1, 1);
+                    Network network = new Network(Network.LearningType.Reverse_error_propagation,
+                                                  new Network.Functions(MyActivateFunc, null,null), 1, 1, 2, 4, 1, 1);
 
                     network[0, 0].AddNextNeuron(network[1, 1], -1);
                     network[0, 0].AddNextNeuron(network[1, 2], -1);
@@ -43,7 +44,7 @@ namespace Neural_Networks.Samples
                     foreach (double res in network.GetResult(0, 0))
                     {
                         /* Выведет -0.5 => 0*/
-                        Outputter.Log("Ответ: " + res + " => " + MyActivateFunc(res));
+                        Outputter.Log("Ответ: " + res);
                         
                     }
                 }

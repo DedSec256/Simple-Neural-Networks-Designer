@@ -12,6 +12,11 @@ namespace Neural_Networks
     {
         public static void Log(string text)
         {
+            //Console.WriteLine(text);
+        }
+
+        public static void WriteLine(string text)
+        {
             Console.WriteLine(text);
         }
 
@@ -22,215 +27,35 @@ namespace Neural_Networks
 
         public static void Warning(string text)
         {
-            Console.WriteLine(text);
-        }
-    }
-
-    abstract class Neuron
-    {
-        public enum Types
-        {
-            Input, Hidden, Output
-        }
-        public Types Type
-        {
-            get; private set;
-        }
-
-        public string NeuronName;
-        protected Dictionary<Neuron, double> NextNeurons;
-        protected Dictionary<Neuron, double> LastNeurons;
-        protected int MaxAdmissionsLeft;
-        protected int AdmissionsLeft;
-        public int GetRemainingSignals()
-        {
-            return MaxAdmissionsLeft;
-        }
-
-        protected double Value;
-        public double GetValue() { return Value; }
-        public virtual void AsOffset() {
-            throw new InvalidOperationException($"Нейрон {NeuronName} нельзя сделать смещением.");
-                }
-
-        public virtual void AddNextNeuron(Neuron neuron, double weight)
-        {
-            if (NextNeurons.ContainsKey(neuron)) throw new
-                    InvalidOperationException($"Нейроны {NeuronName} и {neuron.NeuronName} уже обьединены прямой связью.");
-            else
-            {
-                NextNeurons.Add(neuron, weight);
-                neuron.AddLastNeuron(this, weight);
-                neuron.AdmissionsLeft = ++neuron.MaxAdmissionsLeft;
-            }
-        }
-        public virtual void RemoveNextNeuron(Neuron neuron)
-        {
-            NextNeurons.Remove(neuron);
-        }
-        public virtual void AddLastNeuron(Neuron neuron, double weight)
-        {
-            if (LastNeurons.ContainsKey(neuron)) throw new
-                    InvalidOperationException($"Нейроны {NeuronName} и {neuron.NeuronName} уже обьединены обратной связью.");
-            else
-            {
-                LastNeurons.Add(neuron, weight);
-            }
-        }
-
-        public virtual void RecieveSignal(double value, Network.ActivateFunction activFunc)
-        {
-            Interlocked.Exchange(ref Value, Value + value);
-            Interlocked.Decrement(ref AdmissionsLeft);
-            if (AdmissionsLeft == 0)
-            {
-                SendSignal(activFunc);
-                Interlocked.Exchange(ref AdmissionsLeft, MaxAdmissionsLeft);
-            }
-        }
-
-        private object sendSignalLock = new object();
-        //TODO: --AdmissionLeft
-        public virtual void SendSignal(Network.ActivateFunction activFunc)
-        {
-            Parallel.ForEach(NextNeurons, nextNeuron =>
-            {
-                double res = activFunc(Value);
-                nextNeuron.Key.RecieveSignal(res * nextNeuron.Value, activFunc);
-                Outputter.Log($"Сигнал {NeuronName} - {nextNeuron.Key.NeuronName} отправлен = {Value} * {nextNeuron.Value} -> {res} * {nextNeuron.Value}");
-
-                Value = res;
-            }
-            );
-            
-        }
-        public Neuron(string neuronName, Types type)
-        {
-            NeuronName = neuronName;
-            Type = type;
-
-            MaxAdmissionsLeft = AdmissionsLeft = 0;
-            Value = 0;
-
-            NextNeurons = new Dictionary<Neuron, double>();
-            LastNeurons = new Dictionary<Neuron, double>();
-        }
-        public override string ToString()
-        {
-            StringBuilder sB = new StringBuilder();
-            sB.AppendLine(NeuronName);
-            sB.AppendLine($"Ожидается входящих сигналов: {MaxAdmissionsLeft}");
-
-            return sB.ToString();
-        }
-    }
-
-    class InputNeuron: Neuron
-    {
-        public uint NeuronId
-        {
-            get; private set;
-        }
-
-        public InputNeuron(string neuronName, uint neuronId) : base(neuronName, Types.Input)
-        {
-            NextNeurons = new Dictionary<Neuron, double>();
-            MaxAdmissionsLeft = AdmissionsLeft = 1;
-            NeuronId = neuronId;
-        }
-        public override void SendSignal(Network.ActivateFunction activFunc)
-        {
-            Parallel.ForEach(NextNeurons, nextNeuron =>
-            {
-                nextNeuron.Key.RecieveSignal(nextNeuron.Value * Value, activFunc);
-                Outputter.Log($"Сигнал {NeuronName} - {nextNeuron.Key.NeuronName} отправлен = {nextNeuron.Value * Value}");
-            }
-            );
-        }
-        public override void AddLastNeuron(Neuron neuron, double weight)
-        {
-            throw new Exception($"Нельзя соединить нейроны {neuron.NeuronName} и {NeuronName} обратной связью.");
-        }
-
-    }
-    class HiddenNeuron : Neuron
-    {
-        uint HiddenLayerId;
-        bool IsOffset;
-        public HiddenNeuron(string neuronName, uint hiddenLayerId, bool isOffset = false) 
-            : base(neuronName, Types.Hidden)
-        {
-            HiddenLayerId = hiddenLayerId;
-            IsOffset = isOffset;
-        }
-
-        public override void SendSignal(Network.ActivateFunction activFunc)
-        {
-            if(!IsOffset)
-                base.SendSignal(activFunc);
-            else
-            {
-                Parallel.ForEach(NextNeurons, nextNeuron =>
-                {
-                    nextNeuron.Key.RecieveSignal(nextNeuron.Value * Value, activFunc);
-                    Outputter.Log($"Сигнал {NeuronName} - {nextNeuron.Key.NeuronName}" +
-                        $" отправлен = {nextNeuron.Value * Value}");
-                }
-                );
-            }
-        }
-
-        public override void AsOffset()
-        {
-            IsOffset = true;
-            NeuronName += " (OFFSET)";
-            MaxAdmissionsLeft = AdmissionsLeft = 0;
-            Value = 1;
-
-            if(LastNeurons.Keys.Count != 0)
-            {
-                Outputter.Warning($"[Предупреждение] При изменении свойства IsOffset нейрон {NeuronName} потерял связи с" +
-                    $" {LastNeurons.Keys.Count} нейронами!");
-            }
-
-            while(LastNeurons.Keys.Count != 0)
-            {
-                LastNeurons.ElementAt(0).Key.RemoveNextNeuron(this);
-                LastNeurons.Remove(LastNeurons.ElementAt(0).Key);
-            }
-        }
-    }
-    class OutputNeuron : Neuron
-    {
-        public OutputNeuron(string neuronName) : base(neuronName, Types.Output)
-        {
-            LastNeurons = new Dictionary<Neuron, double>();
-        }
-
-        public override void AddNextNeuron(Neuron neuron, double weight)
-        {
-            throw new Exception($"Нельзя соединить нейроны {neuron.NeuronName} и {NeuronName} прямой связью.");
-        }
-
-        public override void RecieveSignal(double value, Network.ActivateFunction activFunc)
-        {
-            Interlocked.Exchange(ref Value, Value + value);
-            Interlocked.Decrement(ref AdmissionsLeft);
+            Console.WriteLine("[Предупреждение] " + text);
         }
     }
     class Network
     {
+        public enum LearningType
+        {
+            Reverse_error_propagation
+        }
+
+        LearningType NetworkLearningType;
+
         public struct Functions
         {
             public readonly ActivateFunction ActivateFunc;
-            public Functions(ActivateFunction func)
+            public readonly OutErrorFunction OutErrorFunc;
+            public readonly HiddenLayerErrorFunction HiddenLayerErrorFunc;
+            public Functions(ActivateFunction func, OutErrorFunction outError, HiddenLayerErrorFunction hiddenError)
             {
                 ActivateFunc = func;
+                OutErrorFunc = outError;
+                HiddenLayerErrorFunc = hiddenError;
             }
         }
         public delegate double ActivateFunction(double value);
+        public delegate double OutErrorFunction(double value, double expectedOutput);
+        public delegate double HiddenLayerErrorFunction(double value);
 
-        Neuron[][] NeuronsNetwork;
+        protected Neuron[][] NeuronsNetwork;
         public Functions NetFunctions;
         public bool IsConfigured
         {
@@ -243,30 +68,31 @@ namespace Neural_Networks
                 throw new ArgumentException("Сеть не может состоять меньше, чем из 2-х слоёв");
 
             NeuronsNetwork = new Neuron[layers.Length][];
-            for(uint i = 0; i<layers.Length; i++)
+            for (uint i = 0; i < layers.Length; i++)
             {
                 if (layers[i] == 0) throw new ArgumentException($"Значение слоя {i} не может быть нулевым");
                 NeuronsNetwork[i] = new Neuron[layers[i]];
             }
-            for(uint i = 0; i< NeuronsNetwork[0].Length; i++)
+            for (uint i = 0; i < NeuronsNetwork[0].Length; i++)
             {
                 NeuronsNetwork[0][i] = new InputNeuron($"Входной нейрон [{0}][{i}]", i);
             }
-            for(uint i=1; i<layers.Length - 1; i++)
+            for (uint i = 1; i < layers.Length - 1; i++)
             {
-                for(uint j = 0; j< NeuronsNetwork[i].Length; j++)
+                for (uint j = 0; j < NeuronsNetwork[i].Length; j++)
                 {
                     NeuronsNetwork[i][j] = new HiddenNeuron($"Скрытый нейрон [{i}][{j}]", i);
                 }
             }
             for (uint i = 0; i < NeuronsNetwork[layers.Length - 1].Length; i++)
             {
-                NeuronsNetwork[layers.Length - 1][i] = new OutputNeuron($"Выходной нейрон [{layers.Length - 1}][{i}]");
+                NeuronsNetwork[layers.Length - 1][i] = new OutputNeuron($"Выходной нейрон [{layers.Length - 1}][{i}]", i);
             }
 
         }
-        public Network(Functions func, params uint[] layers) : this(layers)
+        public Network(LearningType type, Functions func, params uint[] layers) : this(layers)
         {
+            NetworkLearningType = type;
             NetFunctions = func;
         }
         public void TryToConfigure()
@@ -276,16 +102,28 @@ namespace Neural_Networks
              *      проверка входных на исходящие
              * */
         }
+        protected void ClearNeurons()
+        {
+            foreach (Neuron[] layer in NeuronsNetwork)
+            {
+                foreach (Neuron neuron in layer)
+                {
+                    neuron.Clear();
+                }
+            }
+        }
         public double[] GetResult(params double[] args)
         {
-            if(args.Length != NeuronsNetwork[0].Length)
+            ClearNeurons();
+
+            if (args.Length != NeuronsNetwork[0].Length)
             {
                 throw new ArgumentException("Количество входных данных не соответсвует размеру входного слоя.");
             }
 
             Outputter.Log($"Входные данные: ");
-            for(int i=0; i<args.Length; i++) Outputter.Log($"{NeuronsNetwork[0][i].NeuronName} = {args[i]}");
-            Task.Run(() => 
+            for (int i = 0; i < args.Length; i++) Outputter.Log($"{NeuronsNetwork[0][i].NeuronName} = {args[i]}");
+            Task.Run(() =>
                 {
                     Parallel.ForEach(NeuronsNetwork[0], inputNeuron =>
                     {
@@ -309,13 +147,14 @@ namespace Neural_Networks
             ).Wait();
 
             double[] result = new double[NeuronsNetwork[NeuronsNetwork.Length - 1].Length];
-            for (int i = 0; i< result.Length; i++)
+            for (int i = 0; i < result.Length; i++)
             {
                 result[i] = NeuronsNetwork[NeuronsNetwork.Length - 1][i].GetValue();
             }
             return result;
         }
-        public Neuron this[uint i, uint j]
+
+        public Neuron this[int i, int j]
         {
             get
             {
@@ -327,7 +166,23 @@ namespace Neural_Networks
             }
         }
 
-        //TODO: WRITE LINE 
+        public int LayersCount
+        {
+            get { return NeuronsNetwork.Length; }
+        }
+
+        public Neuron[] this[int i]
+        {
+            get
+            {
+                return NeuronsNetwork[i];
+            }
+            private set
+            {
+                NeuronsNetwork[i] = value;
+            }
+        }
+
         public override string ToString()
         {
             StringBuilder sB = new StringBuilder();
@@ -343,8 +198,5 @@ namespace Neural_Networks
             }
             return sB.ToString();
         }
-
-
-
     }
 }
