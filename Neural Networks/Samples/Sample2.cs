@@ -19,8 +19,7 @@ namespace Neural_Networks.Samples
 
             try
             {
-            NetworkREP network = new NetworkREP(Network.LearningType.Reverse_error_propagation, 
-                    new Network.Functions(MyActivateFunc, null, null), 2,4,1,1);
+            NetworkREP network = new NetworkREP(new Network.Functions(MyActivateFunc, null, null), 2,4,1,1);
             network.LearningNorm = 0.25;
             network.InertialTerm = 1;
                 network[0, 0].AddNextNeuron(network[1, 1], -0.2);

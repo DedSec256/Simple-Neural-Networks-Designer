@@ -10,7 +10,7 @@ namespace Neural_Networks.Samples
 
     class Digits
     {
-        static NetworkREP network = new NetworkREP(Network.LearningType.Reverse_error_propagation, new Network.Functions
+        static NetworkREP network = new NetworkREP(new Network.Functions
                (delegate (double value) { return 1 / (1 + Math.Exp(-value)); }, null, null), 63, 6, 1);
         static void CreateImages()
         {
@@ -54,7 +54,7 @@ namespace Neural_Networks.Samples
                 string filename = Console.ReadLine();
                 try
                 {
-                    Console.WriteLine(network.GetResult(InputImage(new Bitmap(filename)))[0]);
+                    Console.WriteLine(network.GetResult(InputImage(new Bitmap(filename)))[0] * 2);
                 }
                 catch
                 {
@@ -72,7 +72,9 @@ namespace Neural_Networks.Samples
             {
                 for (int j = 0; j < bitmap.Height; j++)
                 {
-                    args[count] = bitmap.GetPixel(i, j).ToArgb() != Color.White.ToArgb() ? 1 : 0;
+                    args[count] = (bitmap.GetPixel(i, j).R < 100 && 
+                                   bitmap.GetPixel(i, j).G < 100 &&
+                                   bitmap.GetPixel(i, j).B < 100  ) ? 1 : 0;
                         ++count;
                 }
             }
@@ -80,11 +82,11 @@ namespace Neural_Networks.Samples
         }
 
         static int COUNT = 2500;
-        static int BAD_COUNT = COUNT;
+        static int BAD_COUNT = COUNT + 1;
 
         public static void Main()
         {
-            CreateImages();
+            //CreateImages();
             network.LearningNorm = 0.9;
             network.InertialTerm = 1;
 
@@ -104,13 +106,13 @@ namespace Neural_Networks.Samples
             {
                 network.Learning(InputImage(new Bitmap($"Images\\sample{i}.png")), new double[] { 1 });
             }
-            Console.WriteLine("good" + (Environment.TickCount - start));
+            Console.WriteLine("good " + (Environment.TickCount - start) + "ms");
             start = Environment.TickCount;
             for (int i = COUNT; i < COUNT + BAD_COUNT; i++)
             {
                 network.Learning(InputImage(new Bitmap($"Images\\sample{i}.png")), new double[] { 0 });
             }
-            Console.WriteLine("bad" + (Environment.TickCount - start));
+            Console.WriteLine("bad " + (Environment.TickCount - start) + "ms");
             Result();
 
         }

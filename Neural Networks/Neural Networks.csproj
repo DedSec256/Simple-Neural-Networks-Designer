@@ -54,6 +54,7 @@
     <Compile Include="Network.cs" />
     <Compile Include="NetworkShell.cs" />
     <Compile Include="Neuron.cs" />
+    <Compile Include="Outputter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Samples\Digits.cs" />
     <Compile Include="Samples\Sample2.cs" />

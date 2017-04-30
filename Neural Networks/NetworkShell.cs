@@ -6,19 +6,19 @@ using System.Threading.Tasks;
 
 namespace Neural_Networks
 {
-    abstract class LearningNetwork : Network, INetwork
+   public abstract class LearningNetwork : Network, INetwork
     {
-        public LearningNetwork(LearningType type, Functions func, params uint[] layers)
-            : base(type, func, layers) { }
+        public LearningNetwork(Functions func, params uint[] layers)
+            : base(func, layers) { }
         public abstract void Learning(double[] args, double[] expectedRes);
     }
 
-    class NetworkREP : LearningNetwork
+    public class NetworkREP : LearningNetwork
     {
         public double LearningNorm;
         public double InertialTerm;
-        public NetworkREP(LearningType type, Functions func, params uint[] layers)
-            : base(type, func, layers) { }
+        public NetworkREP(Functions func, params uint[] layers)
+            : base(func, layers) { }
 
         public override void Learning(double[] args, double[] expectedRes)
         {
@@ -30,7 +30,7 @@ namespace Neural_Networks
 
             GetResult(args);
 
-            Outputter.Log("Обучение...");
+            if(WriteLog) Outputter.Log("Обучение...");
             Task.Run(() =>
             {
                 Parallel.ForEach(NeuronsNetwork[NeuronsNetwork.Length - 1], outputNeuron =>
@@ -41,7 +41,7 @@ namespace Neural_Networks
                   );
             }
             ).Wait();
-            Outputter.Log("Обучение завершено.");
+            if (WriteLog) Outputter.Log("Обучение завершено.");
 
         }
     }

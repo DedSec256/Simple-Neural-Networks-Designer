@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Neural_Networks
 {
-    abstract class Neuron
+    public abstract class Neuron
     {
         public enum Types
         {
@@ -17,6 +17,8 @@ namespace Neural_Networks
         {
             get; private set;
         }
+
+        public bool WriteLog;
 
         public string NeuronName;
         protected Dictionary<Neuron, double> NextNeurons;
@@ -47,7 +49,11 @@ namespace Neural_Networks
         public virtual void AddNextNeuron(Neuron neuron, double? weight = null)
         {
             if (NextNeurons.ContainsKey(neuron))
-                Outputter.Warning($"Нейроны {NeuronName} и {neuron.NeuronName} уже обьединены прямой связью.");
+            {
+                if (WriteLog)
+                    Outputter.Warning($"Нейроны {NeuronName} и {neuron.NeuronName} уже обьединены прямой связью.");
+            }
+
             else
             {
                 Random rand = new Random();
@@ -64,7 +70,10 @@ namespace Neural_Networks
         public virtual void AddLastNeuron(Neuron neuron, double weight)
         {
             if (LastNeurons.ContainsKey(neuron))
-                Outputter.Warning($"Нейроны {NeuronName} и {neuron.NeuronName} уже обьединены обратной связью.");
+            {
+                if (WriteLog)
+                    Outputter.Warning($"Нейроны {NeuronName} и {neuron.NeuronName} уже обьединены обратной связью.");
+            }
             else
             {
                 LastNeurons.Add(neuron, weight);
@@ -90,10 +99,18 @@ namespace Neural_Networks
             {
                 ErrorSummary = Value * (1 - Value) * ErrorSummary * NextNeurons[errorNeuron];
 
-                Outputter.Log($"Вес {NeuronName} - {errorNeuron.NeuronName} изменён {NextNeurons[errorNeuron]} - ");
+                if (WriteLog)
+                {
+                    Outputter.Log($"Вес {NeuronName} - {errorNeuron.NeuronName} изменён {NextNeurons[errorNeuron]} - ");
+                }
+
                 errorNeuron.LastNeurons[this] = NextNeurons[errorNeuron] = NextNeurons[errorNeuron] * inertialTerm
                     + learningNorm * Value * errorNeuron.ErrorSummary;
-                Outputter.Log($"{NextNeurons[errorNeuron]}");
+
+                if (WriteLog)
+                {
+                    Outputter.Log($"{NextNeurons[errorNeuron]}");
+                }
 
                 if (LastNeurons.Count != 0)
                 {
@@ -111,7 +128,8 @@ namespace Neural_Networks
             {
                 double res = activFunc(Value);
                 nextNeuron.Key.RecieveSignal(res * nextNeuron.Value, activFunc);
-                Outputter.Log($"Сигнал {NeuronName} - {nextNeuron.Key.NeuronName} отправлен = {Value} * {nextNeuron.Value} -> {res} * {nextNeuron.Value}");
+                if (WriteLog)
+                    Outputter.Log($"Сигнал {NeuronName} - {nextNeuron.Key.NeuronName} отправлен = {Value} * {nextNeuron.Value} -> {res} * {nextNeuron.Value}");
 
                 Value = res;
             }
@@ -126,6 +144,8 @@ namespace Neural_Networks
 
             MaxAdmissionsLeft = AdmissionsLeft = 0;
             Value = 0;
+
+            WriteLog = false;
 
             NextNeurons = new Dictionary<Neuron, double>();
             LastNeurons = new Dictionary<Neuron, double>();
@@ -162,9 +182,11 @@ namespace Neural_Networks
             Parallel.ForEach(NextNeurons, nextNeuron =>
             {
                 nextNeuron.Key.RecieveSignal(nextNeuron.Value * Value, activFunc);
-                Outputter.Log($"Сигнал {NeuronName} - {nextNeuron.Key.NeuronName} отправлен = {nextNeuron.Value * Value}");
-            }
-            );
+                if (WriteLog)
+                {
+                    Outputter.Log($"Сигнал {NeuronName} - {nextNeuron.Key.NeuronName} отправлен = {nextNeuron.Value * Value}");
+                }
+            });
         }
         public override void AddLastNeuron(Neuron neuron, double weight)
         {
@@ -202,8 +224,11 @@ namespace Neural_Networks
                 Parallel.ForEach(NextNeurons, nextNeuron =>
                 {
                     nextNeuron.Key.RecieveSignal(nextNeuron.Value * Value, activFunc);
-                    Outputter.Log($"Сигнал {NeuronName} - {nextNeuron.Key.NeuronName}" +
+                    if (WriteLog)
+                    {
+                        Outputter.Log($"Сигнал {NeuronName} - {nextNeuron.Key.NeuronName}" +
                         $" отправлен = {nextNeuron.Value * Value}");
+                    }
                 }
                 );
             }
@@ -218,7 +243,8 @@ namespace Neural_Networks
 
             if (LastNeurons.Keys.Count != 0)
             {
-                Outputter.Warning($"При изменении свойства IsOffset нейрон {NeuronName} потерял связи с" +
+                if (WriteLog)
+                    Outputter.Warning($"При изменении свойства IsOffset нейрон {NeuronName} потерял связи с" +
                     $" {LastNeurons.Keys.Count} нейронами!");
             }
 
@@ -257,8 +283,6 @@ namespace Neural_Networks
                 LastNeurons.Keys.ElementAt(i).RecieveErrorSigmoid(this, learningNorm, inertialTerm);
                 }
         }
-
-        //Тут не применяется функция активации
         public override void RecieveSignal(double value, Network.ActivateFunction activFunc)
         {
             Interlocked.Exchange(ref Value, Value + value);
@@ -266,4 +290,7 @@ namespace Neural_Networks
             if (AdmissionsLeft == 0) Value = activFunc(Value);
         }
     }
+
 }
+
+

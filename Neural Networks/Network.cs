@@ -7,38 +7,8 @@ using System.Threading.Tasks;
 
 namespace Neural_Networks
 {
-
-    public static class Outputter
+    public class Network
     {
-        public static void Log(string text)
-        {
-            //Console.WriteLine(text);
-        }
-
-        public static void WriteLine(string text)
-        {
-            Console.WriteLine(text);
-        }
-
-        public static void Error(string text)
-        {
-            Console.WriteLine(text);
-        }
-
-        public static void Warning(string text)
-        {
-            Console.WriteLine("[Предупреждение] " + text);
-        }
-    }
-    class Network
-    {
-        public enum LearningType
-        {
-            Reverse_error_propagation
-        }
-
-        LearningType NetworkLearningType;
-
         public struct Functions
         {
             public readonly ActivateFunction ActivateFunc;
@@ -57,46 +27,48 @@ namespace Neural_Networks
 
         protected Neuron[][] NeuronsNetwork;
         public Functions NetFunctions;
-        public bool IsConfigured
-        {
-            get; private set;
-        }
-        // TODO:  Предупреждение, что некоторый нейрон не используется
         public Network(params uint[] layers)
         {
             if (layers.Length <= 1)
                 throw new ArgumentException("Сеть не может состоять меньше, чем из 2-х слоёв");
 
             NeuronsNetwork = new Neuron[layers.Length][];
-            for (uint i = 0; i < layers.Length; i++)
+            Task.Run(() =>  
             {
-                if (layers[i] == 0) throw new ArgumentException($"Значение слоя {i} не может быть нулевым");
-                NeuronsNetwork[i] = new Neuron[layers[i]];
-            }
-            for (uint i = 0; i < NeuronsNetwork[0].Length; i++)
-            {
-                NeuronsNetwork[0][i] = new InputNeuron($"Входной нейрон [{0}][{i}]", i);
-            }
-            for (uint i = 1; i < layers.Length - 1; i++)
-            {
-                for (uint j = 0; j < NeuronsNetwork[i].Length; j++)
+                Parallel.For(0, layers.Length, i =>
                 {
-                    NeuronsNetwork[i][j] = new HiddenNeuron($"Скрытый нейрон [{i}][{j}]", i);
-                }
-            }
-            for (uint i = 0; i < NeuronsNetwork[layers.Length - 1].Length; i++)
+                    if (layers[i] == 0) throw new ArgumentException($"Значение слоя {i} не может быть нулевым");
+                    NeuronsNetwork[i] = new Neuron[layers[i]];
+                });
+            }).Wait();
+
+            Parallel.For(0, NeuronsNetwork[0].Length, i =>
             {
-                NeuronsNetwork[layers.Length - 1][i] = new OutputNeuron($"Выходной нейрон [{layers.Length - 1}][{i}]", i);
-            }
+                NeuronsNetwork[0][i] = new InputNeuron($"Входной нейрон [{0}][{i}]", Convert.ToUInt32(i));
+            });
+
+            Parallel.For(1, layers.Length - 1, i =>
+            {
+                Parallel.For(0, NeuronsNetwork[i].Length, j =>
+                {
+                    NeuronsNetwork[i][j] = new HiddenNeuron($"Скрытый нейрон [{i}][{j}]", Convert.ToUInt32(i));
+                });
+            });
+
+            Parallel.For(0, NeuronsNetwork[layers.Length - 1].Length, i =>
+            {
+                NeuronsNetwork[layers.Length - 1][i] = new OutputNeuron($"Выходной нейрон [{layers.Length - 1}][{i}]", Convert.ToUInt32(i));
+            });
 
         }
-        public Network(LearningType type, Functions func, params uint[] layers) : this(layers)
+        public Network(Functions func, params uint[] layers) : this(layers)
         {
-            NetworkLearningType = type;
+            WriteLog = false;
             NetFunctions = func;
         }
         public void TryToConfigure()
         {
+            // TODO:  Предупреждение, что некоторый нейрон не используется
             /*TODO: Проверка выходных нейронов на входящие 
              *      Проверка скрытых нейронов на входящие и исходящие
              *      проверка входных на исходящие
@@ -104,13 +76,13 @@ namespace Neural_Networks
         }
         protected void ClearNeurons()
         {
-            foreach (Neuron[] layer in NeuronsNetwork)
-            {
-                foreach (Neuron neuron in layer)
+            Parallel.ForEach(NeuronsNetwork, layer => {
+                Parallel.ForEach(layer, neuron =>
                 {
                     neuron.Clear();
                 }
-            }
+                );
+            });
         }
         public double[] GetResult(params double[] args)
         {
@@ -121,8 +93,10 @@ namespace Neural_Networks
                 throw new ArgumentException("Количество входных данных не соответсвует размеру входного слоя.");
             }
 
-            Outputter.Log($"Входные данные: ");
-            for (int i = 0; i < args.Length; i++) Outputter.Log($"{NeuronsNetwork[0][i].NeuronName} = {args[i]}");
+            if(WriteLog) Outputter.Log($"Входные данные: ");
+
+            for (int i = 0; i < args.Length; i++)
+                if (WriteLog) Outputter.Log($"{NeuronsNetwork[0][i].NeuronName} = {args[i]}");
             Task.Run(() =>
                 {
                     Parallel.ForEach(NeuronsNetwork[0], inputNeuron =>
@@ -153,7 +127,6 @@ namespace Neural_Networks
             }
             return result;
         }
-
         public Neuron this[int i, int j]
         {
             get
@@ -165,12 +138,10 @@ namespace Neural_Networks
                 NeuronsNetwork[i][j] = value;
             }
         }
-
         public int LayersCount
         {
             get { return NeuronsNetwork.Length; }
         }
-
         public Neuron[] this[int i]
         {
             get
@@ -182,7 +153,6 @@ namespace Neural_Networks
                 NeuronsNetwork[i] = value;
             }
         }
-
         public override string ToString()
         {
             StringBuilder sB = new StringBuilder();
@@ -198,5 +168,7 @@ namespace Neural_Networks
             }
             return sB.ToString();
         }
+
+        public bool WriteLog;
     }
 }

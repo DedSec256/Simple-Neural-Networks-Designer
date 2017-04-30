@@ -18,8 +18,7 @@ namespace Neural_Networks.Samples
 
                 try
                 {
-                    Network network = new Network(Network.LearningType.Reverse_error_propagation,
-                                                  new Network.Functions(MyActivateFunc, null,null), 1, 1, 2, 4, 1, 1);
+                    Network network = new Network(new Network.Functions(MyActivateFunc, null,null), 1, 1, 2, 4, 1, 1);
 
                     network[0, 0].AddNextNeuron(network[1, 1], -1);
                     network[0, 0].AddNextNeuron(network[1, 2], -1);
